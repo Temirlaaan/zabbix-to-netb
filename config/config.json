@@ -1,0 +1,111 @@
+{
+  "zabbix": {
+    "url": "${ZABBIX_URL}",
+    "username": "${ZABBIX_USER}",
+    "password": "${ZABBIX_PASSWORD}",
+    "timeout": 30,
+    "verify_ssl": false
+  },
+  
+  "netbox": {
+    "url": "${NETBOX_URL}",
+    "token": "${NETBOX_TOKEN}",
+    "timeout": 30,
+    "verify_ssl": false
+  },
+  
+  "redis": {
+    "host": "${REDIS_HOST:localhost}",
+    "port": "${REDIS_PORT:6379}",
+    "db": "${REDIS_DB:0}",
+    "password": "${REDIS_PASSWORD:}",
+    "ttl_hours": 24,
+    "key_prefix": "zabbix_netbox_sync"
+  },
+  
+  "sync": {
+    "batch_size": 50,
+    "max_workers": 5,
+    "dry_run": false,
+    "continue_on_error": true,
+    "mark_offline_days": 7,
+    "custom_fields": {
+      "last_seen_in_zabbix": true,
+      "zabbix_hostid": true,
+      "sync_source": true
+    }
+  },
+  
+  "sources": {
+    "zabbix_groups": {
+      "network": [
+        "Network/DataCenter/Karagandy",
+        "Network/DataCenter/Atyrau",
+        "Network/DataCenter/Astana-Konaeva",
+        "Network/DataCenter/Astana-Kabanbay",
+        "Network/DataCenter/Almaty"
+      ],
+      "servers": [
+        "VMware hypervisor discovery: DC-Karaganda"
+      ],
+      "storage": []
+    }
+  },
+  
+  "location_mapping": {
+    "prefixes": {
+      "krg": "DC Karaganda",
+      "karaganda": "DC Karaganda",
+      "karagandy": "DC Karaganda",
+      "atr": "DC Atyrau",
+      "atyrau": "DC Atyrau",
+      "ast": "DC Astana",
+      "astana-konaeva": "DC Konaeva10",
+      "konaeva": "DC Konaeva10",
+      "astana-kabanbay": "DC Kabanbay-Batyr28",
+      "kabanbay": "DC Kabanbay-Batyr28",
+      "alm": "DC Almaty",
+      "ala": "DC Almaty",
+      "almaty": "DC Almaty"
+    },
+    "default": "DC Almaty"
+  },
+  
+  "role_mapping": {
+    "network": {
+      "patterns": {
+        "edge-router": "Edge-Router",
+        "edge-switch": "Edge-Switch",
+        "spine": "Spine-Switch",
+        "leaf": "Leaf-Switch",
+        "mgmt": "MGMT-Switch",
+        "colocation": "Colocation-Edge-Switch"
+      },
+      "default": "network-device"
+    },
+    "servers": {
+      "patterns": {
+        "edge": "Edge-Server",
+        "comp": "Compute-Server",
+        "mgmt": "MGMT-Server",
+        "backup": "Backup-Server"
+      },
+      "default": "VMware-Hypervisor"
+    }
+  },
+  
+  "logging": {
+    "level": "INFO",
+    "format": "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    "file": "logs/sync_{date}.log",
+    "console": true,
+    "max_bytes": 10485760,
+    "backup_count": 5
+  },
+  
+  "monitoring": {
+    "enabled": false,
+    "prometheus_port": 9090,
+    "metrics_path": "/metrics"
+  }
+}

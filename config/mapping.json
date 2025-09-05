@@ -1,0 +1,162 @@
+{
+  "network_devices": {
+    "fields": {
+      "name": {
+        "source": "host",
+        "required": true
+      },
+      "status": {
+        "source": "status",
+        "transform": "status_mapping",
+        "mapping": {
+          "0": "active",
+          "1": "offline"
+        }
+      },
+      "manufacturer": {
+        "source": "inventory.vendor",
+        "default": "Unknown"
+      },
+      "device_type": {
+        "source": "inventory.hardware",
+        "default": "Unknown"
+      },
+      "serial_number": {
+        "source": "inventory.serialno_a",
+        "required": false
+      },
+      "asset_tag": {
+        "source": "inventory.asset_tag",
+        "required": false
+      },
+      "platform": {
+        "source": "inventory.software",
+        "required": false
+      },
+      "location": {
+        "source": "_computed",
+        "compute": "location_from_context"
+      },
+      "device_role": {
+        "source": "_computed",
+        "compute": "role_from_context"
+      },
+      "primary_ip": {
+        "source": "interfaces",
+        "transform": "extract_primary_ip"
+      },
+      "comments": {
+        "source": "inventory.notes",
+        "required": false
+      }
+    },
+    "custom_fields": {
+      "zabbix_hostid": {
+        "source": "hostid"
+      },
+      "zabbix_groups": {
+        "source": "groups",
+        "transform": "groups_to_list"
+      },
+      "last_sync": {
+        "source": "_timestamp"
+      }
+    }
+  },
+  
+  "servers": {
+    "fields": {
+      "name": {
+        "source": "host",
+        "required": true
+      },
+      "status": {
+        "source": "status",
+        "transform": "status_mapping",
+        "mapping": {
+          "0": "active",
+          "1": "offline"
+        }
+      },
+      "manufacturer": {
+        "source": "inventory.vendor",
+        "default": "Unknown"
+      },
+      "device_type": {
+        "source": "inventory.hardware",
+        "default": "Unknown"
+      },
+      "serial_number": {
+        "source": "inventory.serialno_a",
+        "required": false
+      },
+      "platform": {
+        "source": "inventory.os",
+        "transform": "extract_platform",
+        "required": false
+      },
+      "location": {
+        "source": "_computed",
+        "compute": "location_from_context"
+      },
+      "device_role": {
+        "source": "_computed",
+        "compute": "role_from_server_name"
+      },
+      "primary_ip": {
+        "source": "interfaces",
+        "transform": "extract_agent_ip"
+      },
+      "comments": {
+        "source": "_combined",
+        "combine": ["inventory.alias", "inventory.os_short", "inventory.software_app_a"],
+        "separator": " | "
+      }
+    },
+    "custom_fields": {
+      "zabbix_hostid": {
+        "source": "hostid"
+      },
+      "hypervisor_type": {
+        "source": "_static",
+        "value": "VMware ESXi"
+      },
+      "cluster_name": {
+        "source": "_extract",
+        "pattern": "VMware hypervisor discovery: (.*)"
+      },
+      "last_sync": {
+        "source": "_timestamp"
+      }
+    }
+  },
+  
+  "storage": {
+    "fields": {
+      "name": {
+        "source": "host",
+        "required": true
+      },
+      "manufacturer": {
+        "source": "inventory.vendor",
+        "default": "NetApp"
+      },
+      "device_type": {
+        "source": "inventory.model",
+        "default": "Storage Array"
+      },
+      "device_role": {
+        "source": "_static",
+        "value": "storage-device"
+      }
+    }
+  },
+  
+  "transformations": {
+    "uppercase": "lambda x: x.upper()",
+    "lowercase": "lambda x: x.lower()",
+    "strip_domain": "lambda x: x.split('.')[0]",
+    "extract_platform": "lambda x: x.split()[0] if x else 'Unknown'",
+    "groups_to_list": "lambda groups: [g['name'] for g in groups]"
+  }
+}
