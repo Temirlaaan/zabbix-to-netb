@@ -1,4 +1,63 @@
-logger.error(f"Error processing server device {device.name}: {e}")
+"""
+Server device processor
+"""
+
+import logging
+import re
+from typing import Any, Dict, List, Tuple
+from datetime import datetime
+
+from ..core.base import DataProcessor, Device, DeviceType
+
+logger = logging.getLogger(__name__)
+
+
+class ServerProcessor(DataProcessor):
+    """Processor for server devices"""
+    
+    def __init__(self, config: Dict[str, Any]):
+        """
+        Initialize server processor
+        
+        Args:
+            config: Configuration dictionary
+        """
+        self.config = config
+        self.location_mapping = config.get('location_mapping', {})
+        self.role_mapping = config.get('role_mapping', {}).get('servers', {})
+        self.field_mapping = config.get('mapping', {}).get('servers', {})
+    
+    def process(self, device: Device) -> Device:
+        """Process and transform server device data"""
+        try:
+            # Extract raw data
+            raw_data = device.data
+            inventory = raw_data.get('inventory', {})
+            
+            # Process basic fields
+            processed_data = {
+                'name': raw_data.get('host', ''),
+                'status': raw_data.get('status', '1'),
+                'manufacturer': self._extract_manufacturer(inventory),
+                'device_type': self._extract_device_type(inventory),
+                'serial_number': inventory.get('serialno_a', ''),
+                'platform': self._extract_platform(inventory),
+                'device_role': self._determine_role(raw_data),
+                'site': self._determine_site(raw_data),
+                'location': self._determine_location(raw_data),
+                'primary_ip': self._extract_primary_ip(raw_data),
+                'comments': self._build_comments(inventory),
+                'custom_fields': self._build_custom_fields(raw_data)
+            }
+            
+            # Update device with processed data
+            device.data = processed_data
+            device.metadata['processed_at'] = datetime.now().isoformat()
+            
+            logger.debug(f"Processed server device: {device.name}")
+            
+        except Exception as e:
+            logger.error(f"Error processing server device {device.name}: {e}")
         
         return device
     
@@ -327,63 +386,4 @@ logger.error(f"Error processing server device {device.name}: {e}")
         elif transform == 'strip_domain':
             return str(value).split('.')[0]
         
-        return value"""
-Server device processor
-"""
-
-import logging
-import re
-from typing import Any, Dict, List, Tuple
-from datetime import datetime
-
-from ..core.base import DataProcessor, Device, DeviceType
-
-logger = logging.getLogger(__name__)
-
-
-class ServerProcessor(DataProcessor):
-    """Processor for server devices"""
-    
-    def __init__(self, config: Dict[str, Any]):
-        """
-        Initialize server processor
-        
-        Args:
-            config: Configuration dictionary
-        """
-        self.config = config
-        self.location_mapping = config.get('location_mapping', {})
-        self.role_mapping = config.get('role_mapping', {}).get('servers', {})
-        self.field_mapping = config.get('mapping', {}).get('servers', {})
-    
-    def process(self, device: Device) -> Device:
-        """Process and transform server device data"""
-        try:
-            # Extract raw data
-            raw_data = device.data
-            inventory = raw_data.get('inventory', {})
-            
-            # Process basic fields
-            processed_data = {
-                'name': raw_data.get('host', ''),
-                'status': raw_data.get('status', '1'),
-                'manufacturer': self._extract_manufacturer(inventory),
-                'device_type': self._extract_device_type(inventory),
-                'serial_number': inventory.get('serialno_a', ''),
-                'platform': self._extract_platform(inventory),
-                'device_role': self._determine_role(raw_data),
-                'site': self._determine_site(raw_data),
-                'location': self._determine_location(raw_data),
-                'primary_ip': self._extract_primary_ip(raw_data),
-                'comments': self._build_comments(inventory),
-                'custom_fields': self._build_custom_fields(raw_data)
-            }
-            
-            # Update device with processed data
-            device.data = processed_data
-            device.metadata['processed_at'] = datetime.now().isoformat()
-            
-            logger.debug(f"Processed server device: {device.name}")
-            
-        except Exception as e:
-            logger.error(f
+        return value
