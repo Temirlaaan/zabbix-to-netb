@@ -287,22 +287,31 @@ def test(ctx):
     try:
         redis_config = config.get('redis', {})
         password = redis_config.get('password')
-        if password == '':
+        
+        # Правильная обработка пароля: пустая строка или None = без пароля
+        if not password or password == '' or password == 'None':
             password = None
+            
         cache = RedisCache(
             host=redis_config.get('host', 'localhost'),
             port=redis_config.get('port', 6379),
             db=redis_config.get('db', 0),
             password=password
         )
-        cache.set('test_key', 'test_value')
-        if cache.get('test_key') == 'test_value':
+        
+        # Тестируем операции с кэшем
+        test_key = 'test_key_' + datetime.now().strftime('%Y%m%d%H%M%S')
+        cache.set(test_key, 'test_value')
+        
+        if cache.get(test_key) == 'test_value':
             click.echo(click.style(f"   ✓ Redis is working", fg='green'))
-            cache.delete('test_key')
+            cache.delete(test_key)
         else:
             click.echo(click.style("   ✗ Redis test failed", fg='red'))
+            
     except Exception as e:
         click.echo(click.style(f"   ✗ Error: {e}", fg='red'))
+        click.echo("   ℹ  Program will use in-memory cache as fallback")
 
 
 @cli.command()
@@ -473,6 +482,327 @@ def list_groups(ctx):
         
     except Exception as e:
         click.echo(f"Error: {e}", err=True)
+
+
+@cli.command()
+@click.option('--datacenter', '-d', help='Filter by datacenter name')
+@click.pass_context
+def list_vmware(ctx, datacenter):
+    """List all VMware/ESXi hosts"""
+    config = ctx.obj['config']
+    
+    click.echo("Searching for VMware/ESXi hosts...")
+    
+    try:
+        from src.sources.zabbix_source import ZabbixSource
+        zabbix_config = config.get('zabbix', {})
+        source = ZabbixSource(
+            url=zabbix_config.get('url'),
+            username=zabbix_config.get('username'),
+            password=zabbix_config.get('password')
+        )
+        
+        if not source.connect():
+            click.echo("Failed to connect to Zabbix", err=True)
+            return
+        
+        # Получаем все VMware хосты
+        hosts = source.get_all_vmware_hosts()
+        
+        if not hosts:
+            click.echo("No VMware hosts found")
+            return
+        
+        # Фильтруем по датацентру если указан
+        if datacenter:
+            datacenter_lower = datacenter.lower()
+            filtered_hosts = []
+            for host in hosts:
+                host_name = host.get('host', '').lower()
+                groups = [g.get('name', '').lower() for g in host.get('groups', [])]
+                
+                # Проверяем имя хоста и группы
+                if datacenter_lower in host_name or any(datacenter_lower in g for g in groups):
+                    filtered_hosts.append(host)
+            hosts = filtered_hosts
+            
+            if not hosts:
+                click.echo(f"No VMware hosts found for datacenter: {datacenter}")
+                return
+        
+        # Группируем по датацентрам
+        datacenters = {}
+        for host in hosts:
+            # Определяем датацентр
+            host_name = host.get('host', '').lower()
+            groups = host.get('groups', [])
+            
+            dc = "Unknown"
+            if 'krg' in host_name or 'karagand' in host_name:
+                dc = "DC Karaganda"
+            elif 'alm' in host_name or 'ala' in host_name or 'almaty' in host_name:
+                dc = "DC Almaty"
+            elif 'atr' in host_name or 'atyrau' in host_name:
+                dc = "DC Atyrau"
+            elif 'az01' in host_name or 'konaeva' in host_name:
+                dc = "DC Konaeva10"
+            elif 'az02' in host_name or 'kabanbay' in host_name:
+                dc = "DC Kabanbay-Batyr28"
+            else:
+                # Проверяем по группам
+                for group in groups:
+                    group_name = group.get('name', '').lower()
+                    if 'karagand' in group_name:
+                        dc = "DC Karaganda"
+                        break
+                    elif 'almaty' in group_name:
+                        dc = "DC Almaty"
+                        break
+                    elif 'atyrau' in group_name:
+                        dc = "DC Atyrau"
+                        break
+                    elif 'konaeva' in group_name:
+                        dc = "DC Konaeva10"
+                        break
+                    elif 'kabanbay' in group_name:
+                        dc = "DC Kabanbay-Batyr28"
+                        break
+            
+            if dc not in datacenters:
+                datacenters[dc] = []
+            datacenters[dc].append(host)
+        
+        # Выводим результаты
+        click.echo(f"\nFound {len(hosts)} VMware/ESXi hosts:\n")
+        
+        for dc, dc_hosts in sorted(datacenters.items()):
+            click.echo(click.style(f"{dc}: {len(dc_hosts)} hosts", fg='cyan', bold=True))
+            
+            # Показываем первые 10 хостов
+            for host in dc_hosts[:10]:
+                inventory = host.get('inventory', {})
+                status = 'Active' if host.get('status') == '0' else 'Inactive'
+                os = inventory.get('os_short', inventory.get('os', 'Unknown'))[:30]
+                
+                click.echo(f"  • {host.get('host')} - {status} - {os}")
+            
+            if len(dc_hosts) > 10:
+                click.echo(f"  ... and {len(dc_hosts) - 10} more hosts")
+            click.echo()
+        
+        # Статистика
+        click.echo(click.style("\nStatistics:", bold=True))
+        active_count = sum(1 for h in hosts if h.get('status') == '0')
+        inactive_count = len(hosts) - active_count
+        click.echo(f"  Active: {active_count}")
+        click.echo(f"  Inactive: {inactive_count}")
+        click.echo(f"  Total: {len(hosts)}")
+        
+        source.disconnect()
+        
+    except Exception as e:
+        click.echo(f"Error: {e}", err=True)
+        import traceback
+        traceback.print_exc()
+
+
+@cli.command()
+@click.option('--datacenter', '-d', help='Filter by datacenter name')
+@click.pass_context
+def list_vmware(ctx, datacenter):
+    """List all VMware/ESXi hosts"""
+    config = ctx.obj['config']
+    
+    click.echo("Searching for VMware/ESXi hosts...")
+    
+    try:
+        from src.sources.zabbix_source import ZabbixSource
+        zabbix_config = config.get('zabbix', {})
+        source = ZabbixSource(
+            url=zabbix_config.get('url'),
+            username=zabbix_config.get('username'),
+            password=zabbix_config.get('password')
+        )
+        
+        if not source.connect():
+            click.echo("Failed to connect to Zabbix", err=True)
+            return
+        
+        # Получаем все VMware хосты
+        hosts = source.get_all_vmware_hosts()
+        
+        if not hosts:
+            click.echo("No VMware hosts found")
+            return
+        
+        # Фильтруем по датацентру если указан
+        if datacenter:
+            datacenter_lower = datacenter.lower()
+            filtered_hosts = []
+            for host in hosts:
+                host_name = host.get('host', '').lower()
+                groups = [g.get('name', '').lower() for g in host.get('groups', [])]
+                
+                # Проверяем имя хоста и группы
+                if datacenter_lower in host_name or any(datacenter_lower in g for g in groups):
+                    filtered_hosts.append(host)
+            hosts = filtered_hosts
+            
+            if not hosts:
+                click.echo(f"No VMware hosts found for datacenter: {datacenter}")
+                return
+        
+        # Группируем по датацентрам
+        datacenters = {}
+        for host in hosts:
+            # Определяем датацентр
+            host_name = host.get('host', '').lower()
+            groups = host.get('groups', [])
+            
+            dc = "Unknown"
+            if 'krg' in host_name or 'karagand' in host_name:
+                dc = "DC Karaganda"
+            elif 'alm' in host_name or 'ala' in host_name or 'almaty' in host_name:
+                dc = "DC Almaty"
+            elif 'atr' in host_name or 'atyrau' in host_name:
+                dc = "DC Atyrau"
+            elif 'az01' in host_name or 'konaeva' in host_name:
+                dc = "DC Konaeva10"
+            elif 'az02' in host_name or 'kabanbay' in host_name:
+                dc = "DC Kabanbay-Batyr28"
+            else:
+                # Проверяем по группам
+                for group in groups:
+                    group_name = group.get('name', '').lower()
+                    if 'karagand' in group_name:
+                        dc = "DC Karaganda"
+                        break
+                    elif 'almaty' in group_name:
+                        dc = "DC Almaty"
+                        break
+                    elif 'atyrau' in group_name:
+                        dc = "DC Atyrau"
+                        break
+                    elif 'konaeva' in group_name:
+                        dc = "DC Konaeva10"
+                        break
+                    elif 'kabanbay' in group_name:
+                        dc = "DC Kabanbay-Batyr28"
+                        break
+            
+            if dc not in datacenters:
+                datacenters[dc] = []
+            datacenters[dc].append(host)
+        
+        # Выводим результаты
+        click.echo(f"\nFound {len(hosts)} VMware/ESXi hosts:\n")
+        
+        for dc, dc_hosts in sorted(datacenters.items()):
+            click.echo(click.style(f"{dc}: {len(dc_hosts)} hosts", fg='cyan', bold=True))
+            
+            # Показываем первые 10 хостов
+            for host in dc_hosts[:10]:
+                inventory = host.get('inventory', {})
+                
+                # Проверяем тип inventory (может быть список или словарь)
+                if isinstance(inventory, list):
+                    # Если inventory - список, берем первый элемент или пустой словарь
+                    inventory = inventory[0] if inventory else {}
+                elif not isinstance(inventory, dict):
+                    inventory = {}
+                
+                status = 'Active' if host.get('status') == '0' else 'Inactive'
+                os = inventory.get('os_short', inventory.get('os', 'Unknown'))
+                if os:
+                    os = str(os)[:30]
+                else:
+                    os = 'Unknown'
+                
+                click.echo(f"  • {host.get('host')} - {status} - {os}")
+            
+            if len(dc_hosts) > 10:
+                click.echo(f"  ... and {len(dc_hosts) - 10} more hosts")
+            click.echo()
+        
+        # Статистика
+        click.echo(click.style("\nStatistics:", bold=True))
+        active_count = sum(1 for h in hosts if h.get('status') == '0')
+        inactive_count = len(hosts) - active_count
+        click.echo(f"  Active: {active_count}")
+        click.echo(f"  Inactive: {inactive_count}")
+        click.echo(f"  Total: {len(hosts)}")
+        
+        source.disconnect()
+        
+    except Exception as e:
+        click.echo(f"Error: {e}", err=True)
+        import traceback
+        traceback.print_exc()
+
+
+@cli.command()
+@click.argument('group')
+@click.pass_context
+def list_devices(ctx, group):
+    """List devices in a Zabbix group"""
+    config = ctx.obj['config']
+    
+    click.echo(f"Listing devices in group: {group}")
+    
+    try:
+        from src.sources.zabbix_source import ZabbixSource
+        zabbix_config = config.get('zabbix', {})
+        source = ZabbixSource(
+            url=zabbix_config.get('url'),
+            username=zabbix_config.get('username'),
+            password=zabbix_config.get('password')
+        )
+        
+        if not source.connect():
+            click.echo("Failed to connect to Zabbix", err=True)
+            return
+        
+        hosts = source.get_hosts_by_group(group)
+        
+        if not hosts:
+            click.echo(f"No hosts found in group {group}")
+            return
+        
+        # Display hosts
+        table_data = []
+        for host in hosts[:20]:  # Show first 20
+            inventory = host.get('inventory', {})
+            
+            # Проверяем тип inventory
+            if isinstance(inventory, list):
+                inventory = inventory[0] if inventory else {}
+            elif not isinstance(inventory, dict):
+                inventory = {}
+            
+            table_data.append([
+                host.get('host'),
+                'Active' if host.get('status') == '0' else 'Inactive',
+                inventory.get('vendor', 'N/A'),
+                str(inventory.get('hardware', 'N/A'))[:30]
+            ])
+        
+        click.echo(tabulate(
+            table_data,
+            headers=['Host', 'Status', 'Vendor', 'Hardware'],
+            tablefmt='grid'
+        ))
+        
+        if len(hosts) > 20:
+            click.echo(f"\n... and {len(hosts) - 20} more devices")
+        
+        click.echo(f"\nTotal: {len(hosts)} devices")
+        
+        source.disconnect()
+        
+    except Exception as e:
+        click.echo(f"Error: {e}", err=True)
+        import traceback
+        traceback.print_exc()
 
 
 if __name__ == '__main__':

@@ -1,5 +1,5 @@
 """
-Redis cache implementation
+Redis cache implementation with fixed password handling
 """
 
 import json
@@ -26,7 +26,7 @@ class RedisCache(Cache):
             host: Redis host
             port: Redis port
             db: Redis database number
-            password: Redis password
+            password: Redis password (None for no auth)
             prefix: Key prefix for namespacing
             ttl_hours: Default TTL in hours
         """
@@ -34,14 +34,18 @@ class RedisCache(Cache):
         self.ttl_seconds = ttl_hours * 3600
         
         try:
-            # Создаем подключение без пароля если он не указан или пустой
-            if password and password.strip():  # Проверяем что пароль не пустой
+            # Правильная обработка пароля
+            # password=None или password='' означает подключение без авторизации
+            if password and password.strip() and password != 'None':
+                # Подключение с паролем только если он действительно указан
                 self.client = redis.Redis(
                     host=host,
                     port=port,
                     db=db,
                     password=password,
-                    decode_responses=False
+                    decode_responses=False,
+                    socket_connect_timeout=5,
+                    socket_timeout=5
                 )
             else:
                 # Подключение без пароля
@@ -49,14 +53,41 @@ class RedisCache(Cache):
                     host=host,
                     port=port,
                     db=db,
-                    decode_responses=False
+                    decode_responses=False,
+                    socket_connect_timeout=5,
+                    socket_timeout=5
                 )
             
             # Test connection
             self.client.ping()
-            logger.info(f"Connected to Redis at {host}:{port}")
+            logger.info(f"Connected to Redis at {host}:{port} (db={db})")
+            
+        except redis.AuthenticationError as e:
+            logger.error(f"Redis authentication failed: {e}")
+            logger.info("Trying to connect without password...")
+            
+            # Попытка подключения без пароля
+            try:
+                self.client = redis.Redis(
+                    host=host,
+                    port=port,
+                    db=db,
+                    decode_responses=False,
+                    socket_connect_timeout=5,
+                    socket_timeout=5
+                )
+                self.client.ping()
+                logger.info(f"Connected to Redis at {host}:{port} without authentication")
+                
+            except Exception as e2:
+                logger.error(f"Failed to connect to Redis without password: {e2}")
+                raise
+                
         except redis.ConnectionError as e:
             logger.error(f"Failed to connect to Redis: {e}")
+            raise
+        except Exception as e:
+            logger.error(f"Unexpected error connecting to Redis: {e}")
             raise
     
     def _make_key(self, key: str) -> str:
@@ -279,7 +310,7 @@ class MemoryCache(Cache):
             del self.cache[key]
         return len(keys_to_delete)
     
-    # Additional methods for device-specific operations (for compatibility)
+    # Additional methods for compatibility with RedisCache
     
     def get_device(self, device_name: str) -> Optional[Device]:
         """Get cached device"""

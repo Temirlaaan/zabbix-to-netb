@@ -46,9 +46,24 @@
         "Network/DataCenter/Almaty"
       ],
       "servers": [
-        "VMware hypervisor discovery: DC-Karaganda"
+        "VMware hypervisor discovery: DC-Karaganda",
+        "VMware hypervisor discovery: DC-Almaty",
+        "VMware hypervisor discovery: DC-Atyrau",
+        "VMware hypervisor discovery: DC-Astana-Konaeva",
+        "VMware hypervisor discovery: DC-Astana-Kabanbay",
+        "All-Servers/DataCenter/Hosts/Karaganda",
+        "All-Servers/DataCenter/Hosts/Almaty",
+        "All-Servers/DataCenter/Hosts/Atyrau",
+        "All-Servers/DataCenter/Hosts/Astana-Konaeva",
+        "All-Servers/DataCenter/Hosts/Astana-Kabanbay"
       ],
-      "storage": []
+      "storage": [
+        "DataStore/DataCenter/Karagandy",
+        "DataStore/DataCenter/Almaty",
+        "DataStore/DataCenter/Atyrau",
+        "DataStore/DataCenter/Astana-Konaeva",
+        "DataStore/DataCenter/Astana-Kabanbay"
+      ]
     }
   },
   
@@ -66,7 +81,9 @@
       "kabanbay": "DC Kabanbay-Batyr28",
       "alm": "DC Almaty",
       "ala": "DC Almaty",
-      "almaty": "DC Almaty"
+      "almaty": "DC Almaty",
+      "az01": "DC Konaeva10",
+      "az02": "DC Kabanbay-Batyr28"
     },
     "default": "DC Almaty"
   },
