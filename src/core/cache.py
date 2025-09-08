@@ -5,7 +5,7 @@ Redis cache implementation
 import json
 import pickle
 import redis
-from typing import Any, List, Optional
+from typing import Any, Dict, List, Optional
 from datetime import datetime, timedelta
 import logging
 
@@ -34,13 +34,24 @@ class RedisCache(Cache):
         self.ttl_seconds = ttl_hours * 3600
         
         try:
-            self.client = redis.Redis(
-                host=host,
-                port=port,
-                db=db,
-                password=password,
-                decode_responses=False  # For binary data
-            )
+            # Создаем подключение без пароля если он не указан или пустой
+            if password and password.strip():  # Проверяем что пароль не пустой
+                self.client = redis.Redis(
+                    host=host,
+                    port=port,
+                    db=db,
+                    password=password,
+                    decode_responses=False
+                )
+            else:
+                # Подключение без пароля
+                self.client = redis.Redis(
+                    host=host,
+                    port=port,
+                    db=db,
+                    decode_responses=False
+                )
+            
             # Test connection
             self.client.ping()
             logger.info(f"Connected to Redis at {host}:{port}")
@@ -267,3 +278,63 @@ class MemoryCache(Cache):
         for key in keys_to_delete:
             del self.cache[key]
         return len(keys_to_delete)
+    
+    # Additional methods for device-specific operations (for compatibility)
+    
+    def get_device(self, device_name: str) -> Optional[Device]:
+        """Get cached device"""
+        return self.get(f"device:{device_name}")
+    
+    def set_device(self, device: Device, ttl: Optional[int] = None) -> bool:
+        """Cache device"""
+        return self.set(f"device:{device.name}", device, ttl)
+    
+    def get_device_hash(self, device_name: str) -> Optional[str]:
+        """Get cached device hash"""
+        return self.get(f"hash:{device_name}")
+    
+    def set_device_hash(self, device_name: str, hash_value: str, 
+                        ttl: Optional[int] = None) -> bool:
+        """Cache device hash"""
+        return self.set(f"hash:{device_name}", hash_value, ttl)
+    
+    def get_last_sync(self, source: str = None) -> Optional[datetime]:
+        """Get last sync timestamp"""
+        key = f"last_sync:{source}" if source else "last_sync"
+        timestamp = self.get(key)
+        if timestamp:
+            return datetime.fromisoformat(timestamp)
+        return None
+    
+    def set_last_sync(self, timestamp: datetime, source: str = None) -> bool:
+        """Set last sync timestamp"""
+        key = f"last_sync:{source}" if source else "last_sync"
+        return self.set(key, timestamp.isoformat())
+    
+    def get_sync_stats(self) -> Optional[Dict]:
+        """Get sync statistics"""
+        return self.get("stats:latest")
+    
+    def set_sync_stats(self, stats: Dict) -> bool:
+        """Set sync statistics"""
+        stats['timestamp'] = datetime.now().isoformat()
+        return self.set("stats:latest", stats)
+    
+    def add_to_failed_devices(self, device_name: str, error: str) -> bool:
+        """Add device to failed list"""
+        key = f"failed:{datetime.now().strftime('%Y%m%d')}"
+        failed_list = self.get(key) or []
+        failed_list.append({
+            'device': device_name,
+            'error': error,
+            'timestamp': datetime.now().isoformat()
+        })
+        return self.set(key, failed_list, ttl=86400 * 7)
+    
+    def get_failed_devices(self, date: Optional[str] = None) -> List[Dict]:
+        """Get list of failed devices"""
+        if date:
+            key = f"failed:{date}"
+        else:
+            key = f"failed:{datetime.now().strftime('%Y%m%d')}"
+        return self.get(key) or []

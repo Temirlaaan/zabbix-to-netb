@@ -286,11 +286,14 @@ def test(ctx):
     click.echo("\n3. Testing Redis connection...")
     try:
         redis_config = config.get('redis', {})
+        password = redis_config.get('password')
+        if password == '':
+            password = None
         cache = RedisCache(
             host=redis_config.get('host', 'localhost'),
             port=redis_config.get('port', 6379),
             db=redis_config.get('db', 0),
-            password=redis_config.get('password')
+            password=password
         )
         cache.set('test_key', 'test_value')
         if cache.get('test_key') == 'test_value':
