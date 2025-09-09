@@ -32,7 +32,9 @@
     "custom_fields": {
       "last_seen_in_zabbix": true,
       "zabbix_hostid": true,
-      "sync_source": true
+      "sync_source": true,
+      "zabbix_alias": true,
+      "zabbix_os_full": true
     }
   },
   
@@ -43,14 +45,11 @@
         "Network/DataCenter/Atyrau",
         "Network/DataCenter/Astana-Konaeva",
         "Network/DataCenter/Astana-Kabanbay",
-        "Network/DataCenter/Almaty"
+        "Network/DataCenter/Almaty",
+        "Network/DataCenter-AO-NIT/Astana-MSK-STSGO",
+        "Network/DataCenter/All-Servers-Network"
       ],
       "servers": [
-        "VMware hypervisor discovery: DC-Karaganda",
-        "VMware hypervisor discovery: DC-Almaty",
-        "VMware hypervisor discovery: DC-Atyrau",
-        "VMware hypervisor discovery: DC-Astana-Konaeva",
-        "VMware hypervisor discovery: DC-Astana-Kabanbay",
         "All-Servers/DataCenter/Hosts/Karaganda",
         "All-Servers/DataCenter/Hosts/Almaty",
         "All-Servers/DataCenter/Hosts/Atyrau",
@@ -81,7 +80,9 @@
       "kabanbay": "DC Kabanbay-Batyr28",
       "alm": "DC Almaty",
       "ala": "DC Almaty",
-      "almaty": "DC Almaty",
+      "almaty": "DC Almaty"
+    },
+    "az_mapping": {
       "az01": "DC Konaeva10",
       "az02": "DC Kabanbay-Batyr28"
     },
@@ -96,19 +97,46 @@
         "spine": "Spine-Switch",
         "leaf": "Leaf-Switch",
         "mgmt": "MGMT-Switch",
-        "colocation": "Colocation-Edge-Switch"
+        "colocation": "Colocation-Edge-Switch",
+        "asud": "ASUD-Switch",
+        "ao-nit": "AO-NIT-Switch"
       },
-      "default": "network-device"
+      "default": "Edge-Switch"
     },
     "servers": {
-      "patterns": {
-        "edge": "Edge-Server",
-        "comp": "Compute-Server",
-        "mgmt": "MGMT-Server",
-        "backup": "Backup-Server"
+      "hypervisor_patterns": {
+        "edge": "Edge-Cluster-Servers-All",
+        "cloud-edge": "Edge-Cluster-Servers-All",
+        "comp": "Compute-Cluster-Servers-All",
+        "gen-cluster": "Compute-Cluster-Servers-All",
+        "mgmt": "MGMT-Cluster-Servers-All",
+        "hm-cluster": "MGMT-Cluster-Servers-All",
+        "backup": "MGMT-Cluster-Servers-All",
+        "vsbc": "Edge-Cluster-Servers-All"
       },
-      "default": "VMware-Hypervisor"
+      "default": "Compute-Cluster-Servers-All"
+    },
+    "storage": {
+      "patterns": {
+        "netapp": "SHD-Cluster-All",
+        "san": "SAN Switches - All"
+      },
+      "default": "SHD-Cluster-All"
     }
+  },
+  
+  "manufacturer_mapping": {
+    "dell": "Dell Technologies",
+    "hp": "Hewlett Packard Enterprise",
+    "hpe": "Hewlett Packard Enterprise",
+    "lenovo": "Lenovo",
+    "cisco": "Cisco Systems",
+    "juniper": "Juniper Networks",
+    "extreme": "Extreme Networks",
+    "fortinet": "Fortinet",
+    "huawei": "Huawei",
+    "netapp": "NetApp",
+    "vmware": "VMware"
   },
   
   "logging": {
